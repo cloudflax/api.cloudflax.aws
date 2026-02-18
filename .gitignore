@@ -1,0 +1,40 @@
+# Local .terraform directories
+**/.terraform/*
+
+# .tfstate files
+*.tfstate
+*.tfstate.*
+
+# Crash log files
+crash.log
+crash.log.*
+
+# Exclude all .tfvars files
+*.tfvars
+*.tfvars.json
+
+# Ignore override files
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Include filter for plugin cache directory
+.terraform.lock.hcl
+
+# Lambda compiled/dependency files
+# Ignoramos carpetas de librerías (como psycopg2) y el .zip generado
+lambda/*/
+lambda/*.zip
+# Pero nos aseguramos de NO ignorar el código fuente y scripts
+!lambda/rotation.py
+!lambda/*.sh
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
