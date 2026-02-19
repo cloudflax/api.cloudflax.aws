@@ -23,12 +23,15 @@ override.tf.json
 .terraform.lock.hcl
 
 # Lambda compiled/dependency files
-# Ignoramos carpetas de librerías (como psycopg2) y el .zip generado
-lambda/*/
-lambda/*.zip
-# Pero nos aseguramos de NO ignorar el código fuente y scripts
-!lambda/rotation.py
-!lambda/*.sh
+# Ignoramos carpetas de librerías (como psycopg2) y los .zip generados en cualquier subcarpeta
+lambda/**/*.zip
+lambda/**/psycopg2*/
+lambda/**/psycopg2.libs/
+lambda/**/__pycache__/
+
+# Pero nos aseguramos de NO ignorar el código fuente (.py) y scripts (.sh) en cualquier nivel
+!lambda/**/*.py
+!lambda/**/*.sh
 
 # OS generated files
 .DS_Store
