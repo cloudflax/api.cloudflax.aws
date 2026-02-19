@@ -27,6 +27,7 @@ provider "aws" {
     sts            = "http://localhost:4566"
     iam            = "http://localhost:4566"
     lambda         = "http://localhost:4566"
+    events         = "http://localhost:4566"
   }
 }
 
@@ -128,4 +129,53 @@ resource "aws_lambda_permission" "allow_secrets_manager" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.rotation_lambda.function_name
   principal     = "secretsmanager.amazonaws.com" 
+}
+
+# --- CLEANUP EXPIRED TOKENS LAMBDA ---
+# --- LAMBDA DE LIMPIEZA DE TOKENS EXPIRADOS ---
+
+data "archive_file" "cleanup_lambda_zip" {
+  type        = "zip"
+  source_dir  = "${path.module}/lambda/cleanup_tokens"
+  output_path = "${path.module}/lambda/cleanup_tokens/cleanup_code.zip"
+}
+
+resource "aws_lambda_function" "cleanup_lambda" {
+  filename      = data.archive_file.cleanup_lambda_zip.output_path
+  function_name = "tf-localstack-cleanup-tokens-lambda"
+  role          = aws_iam_role.lambda_role.arn
+  handler       = "cleanup.handler"
+  runtime       = "python3.9"
+
+  source_code_hash = data.archive_file.cleanup_lambda_zip.output_base64sha256
+
+  environment {
+    variables = {
+      SECRETS_MANAGER_ENDPOINT = "http://host.docker.internal:4566"
+      DB_SECRET_ARN            = aws_secretsmanager_secret.db_secret.arn
+    }
+  }
+}
+
+# --- SCHEDULED EVENT (EVERY 1 MINUTE) ---
+# --- EVENTO PROGRAMADO (CADA 1 MINUTO) ---
+
+resource "aws_cloudwatch_event_rule" "cleanup_schedule" {
+  name                = "cleanup-tokens-every-minute"
+  description         = "Ejecuta la lambda de limpieza de tokens cada minuto"
+  schedule_expression = "rate(1 minute)"
+}
+
+resource "aws_cloudwatch_event_target" "cleanup_target" {
+  rule      = aws_cloudwatch_event_rule.cleanup_schedule.name
+  target_id = "CleanupTokensLambda"
+  arn       = aws_lambda_function.cleanup_lambda.arn
+}
+
+resource "aws_lambda_permission" "allow_cloudwatch_cleanup" {
+  statement_id  = "AllowExecutionFromCloudWatch"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.cleanup_lambda.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.cleanup_schedule.arn
 }
