@@ -1,6 +1,6 @@
 # API Cloudflax – AWS (LocalStack)
 
-Infraestructura como código con **Terraform** para desplegar en **LocalStack** un clúster RDS Aurora PostgreSQL junto con los recursos de soporte necesarios.
+Infraestructura como código con **Terraform** orientada a **AWS** en producción. En desarrollo, los servicios de AWS se simulan localmente mediante **LocalStack**.
 
 ## Recursos desplegados
 
@@ -25,14 +25,23 @@ Infraestructura como código con **Terraform** para desplegar en **LocalStack** 
 ```
 .
 ├── main.tf                          # Todos los recursos Terraform
+├── terraform.tfstate                # Estado de Terraform (no subir a VCS)
+├── terraform.tfstate.backup         # Backup del estado anterior
 ├── lambda/
 │   ├── db_rotation/
 │   │   ├── rotation.py              # Lambda de rotación de credenciales
 │   │   ├── rotation_code.zip        # Artefacto generado por Terraform
+│   │   ├── psycopg2/                # Dependencia empaquetada (Linux)
+│   │   ├── psycopg2_binary.libs/    # Libs nativas de psycopg2
+│   │   ├── psycopg2_binary-*.dist-info/
 │   │   └── README.md
 │   └── cleanup_tokens/
 │       ├── cleanup.py               # Lambda de limpieza de tokens
 │       ├── cleanup_code.zip         # Artefacto generado por Terraform
+│       ├── psycopg2/                # Dependencia empaquetada (Linux)
+│       ├── psycopg2_binary.libs/    # Libs nativas de psycopg2
+│       ├── psycopg2_binary-*.dist-info/
+│       ├── lambda/cleanup_tokens/   # Copia generada durante el empaquetado
 │       └── README.md
 └── README.md
 ```
