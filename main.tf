@@ -4,6 +4,10 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+    null = {
+      source  = "hashicorp/null"
+      version = "~> 3.0"
+    }
   }
 }
 
@@ -22,12 +26,57 @@ provider "aws" {
   s3_use_path_style = true
 
   endpoints {
+    ses            = "http://localhost:4566"
+    sesv2          = "http://localhost:4566"
     rds            = "http://localhost:4566"
     secretsmanager = "http://localhost:4566"
     sts            = "http://localhost:4566"
     iam            = "http://localhost:4566"
     lambda         = "http://localhost:4566"
     events         = "http://localhost:4566"
+  }
+}
+
+# --- SES CONFIGURATION ---
+# --- CONFIGURACIÓN DE SES ---
+
+resource "null_resource" "ses_email_identity" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      AWS_ACCESS_KEY_ID=test \
+      AWS_SECRET_ACCESS_KEY=test \
+      aws --endpoint-url=http://localhost:4566 \
+          --region us-east-1 \
+          ses verify-email-identity \
+          --email-address jose.guerrero@cloudflax.com \
+          2>/dev/null || true
+    EOT
+  }
+
+  # always_run forces re-execution on every apply to handle LocalStack restarts
+  triggers = {
+    email      = "jose.guerrero@cloudflax.com"
+    always_run = timestamp()
+  }
+}
+
+resource "null_resource" "sesv2_email_identity" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      AWS_ACCESS_KEY_ID=test \
+      AWS_SECRET_ACCESS_KEY=test \
+      aws --endpoint-url=http://localhost:4566 \
+          --region us-east-1 \
+          sesv2 create-email-identity \
+          --email-identity jose.guerrero@cloudflax.com \
+          2>/dev/null || true
+    EOT
+  }
+
+  # always_run forces re-execution on every apply to handle LocalStack restarts
+  triggers = {
+    email      = "jose.guerrero@cloudflax.com"
+    always_run = timestamp()
   }
 }
 
