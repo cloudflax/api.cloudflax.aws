@@ -16,7 +16,7 @@ Infraestructura como código con **Terraform** orientada a **AWS** en producció
 ## Requisitos previos
 
 - [Terraform](https://www.terraform.io/downloads) (provider AWS ~> 5.0)
-- [LocalStack](https://docs.localstack.cloud/) en ejecución en `http://localhost:4566`
+- [LocalStack](https://docs.localstack.cloud/) en ejecución en `http://localhost:5000`
 - [Docker](https://www.docker.com/) (para empaquetar las Lambdas con dependencias Linux)
 - [awslocal](https://github.com/localstack/awscli-local) (`pip install awscli-local`)
 
@@ -63,9 +63,9 @@ terraform apply
 
 ## Configuración relevante
 
-- **Provider**: credenciales de prueba (`test`/`test`), región `us-east-1`, endpoints apuntando a LocalStack (`localhost:4566`).
+- **Provider**: credenciales de prueba (`test`/`test`), región `us-east-1`, endpoints apuntando a LocalStack (`localhost:5000`).
 - **Secreto**: `host` configurado como `host.docker.internal:4510` para que las Lambdas (dentro del contenedor de LocalStack) alcancen PostgreSQL en el host.
-- **Variable de entorno Lambda**: `SECRETS_MANAGER_ENDPOINT = "http://host.docker.internal:4566"`.
+- **Variable de entorno Lambda**: `SECRETS_MANAGER_ENDPOINT = "http://host.docker.internal:5000"`.
 
 Ajusta `host` y `port` del secreto en `main.tf` según dónde corra tu instancia PostgreSQL.
 

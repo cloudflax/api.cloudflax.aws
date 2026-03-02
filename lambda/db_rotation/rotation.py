@@ -18,7 +18,7 @@ def get_random_password(length=32):
 
 def get_secrets_manager_client():
     # Mantiene la configuración para que la Lambda vea a LocalStack.
-    endpoint_url = os.environ.get('SECRETS_MANAGER_ENDPOINT', 'http://host.docker.internal:4566')
+    endpoint_url = os.environ.get('SECRETS_MANAGER_ENDPOINT', 'http://host.docker.internal:5000')
     return boto3.client('secretsmanager', endpoint_url=endpoint_url, region_name='us-east-1')
 
 def handler(event, context):

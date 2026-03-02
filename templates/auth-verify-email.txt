@@ -1,0 +1,7 @@
+Welcome to Cloudflax, {{name}}!
+
+Please verify your email address by visiting the link below:
+
+{{link}}
+
+This link expires in 24 hours.

@@ -26,14 +26,61 @@ provider "aws" {
   s3_use_path_style = true
 
   endpoints {
-    ses            = "http://localhost:4566"
-    sesv2          = "http://localhost:4566"
-    rds            = "http://localhost:4566"
-    secretsmanager = "http://localhost:4566"
-    sts            = "http://localhost:4566"
-    iam            = "http://localhost:4566"
-    lambda         = "http://localhost:4566"
-    events         = "http://localhost:4566"
+    ses            = "http://localhost:5000"
+    sesv2          = "http://localhost:5000"
+    rds            = "http://localhost:5000"
+    secretsmanager = "http://localhost:5000"
+    sts            = "http://localhost:5000"
+    iam            = "http://localhost:5000"
+    lambda         = "http://localhost:5000"
+    events         = "http://localhost:5000"
+  }
+}
+
+# --- SES V2 EMAIL TEMPLATE ---
+# aws_sesv2_email_template is not supported by the Terraform AWS provider;
+# the template is created via CLI using a null_resource instead.
+
+locals {
+  auth_verify_email_template = jsonencode({
+    TemplateName = "AuthVerifyEmail"
+    TemplateContent = {
+      Subject  = "Verify your account - Cloudflax"
+      Html     = file("${path.module}/templates/auth-verify-email.html")
+      Text     = file("${path.module}/templates/auth-verify-email.txt")
+    }
+  })
+}
+
+variable "ses_email_identity" {
+  type = string
+}
+
+resource "null_resource" "auth_verify_email_template" {
+  provisioner "local-exec" {
+    command = <<-EOT
+      AWS_ACCESS_KEY_ID=test \
+      AWS_SECRET_ACCESS_KEY=test \
+      aws --endpoint-url=http://localhost:5000 \
+          --region us-east-1 \
+          sesv2 create-email-template \
+          --cli-input-json '${local.auth_verify_email_template}' \
+          2>/dev/null || \
+      AWS_ACCESS_KEY_ID=test \
+      AWS_SECRET_ACCESS_KEY=test \
+      aws --endpoint-url=http://localhost:5000 \
+          --region us-east-1 \
+          sesv2 update-email-template \
+          --cli-input-json '${local.auth_verify_email_template}' \
+          2>/dev/null || true
+    EOT
+  }
+
+  triggers = {
+    subject    = "Verify your account - Cloudflax"
+    html       = filemd5("${path.module}/templates/auth-verify-email.html")
+    text       = filemd5("${path.module}/templates/auth-verify-email.txt")
+    always_run = timestamp()
   }
 }
 
@@ -45,17 +92,17 @@ resource "null_resource" "ses_email_identity" {
     command = <<-EOT
       AWS_ACCESS_KEY_ID=test \
       AWS_SECRET_ACCESS_KEY=test \
-      aws --endpoint-url=http://localhost:4566 \
+      aws --endpoint-url=http://localhost:5000 \
           --region us-east-1 \
           ses verify-email-identity \
-          --email-address jose.guerrero@cloudflax.com \
+          --email-address ${var.ses_email_identity} \
           2>/dev/null || true
     EOT
   }
 
   # always_run forces re-execution on every apply to handle LocalStack restarts
   triggers = {
-    email      = "jose.guerrero@cloudflax.com"
+    email      = var.ses_email_identity
     always_run = timestamp()
   }
 }
@@ -65,17 +112,17 @@ resource "null_resource" "sesv2_email_identity" {
     command = <<-EOT
       AWS_ACCESS_KEY_ID=test \
       AWS_SECRET_ACCESS_KEY=test \
-      aws --endpoint-url=http://localhost:4566 \
+      aws --endpoint-url=http://localhost:5000 \
           --region us-east-1 \
           sesv2 create-email-identity \
-          --email-identity jose.guerrero@cloudflax.com \
+          --email-identity ${var.ses_email_identity} \
           2>/dev/null || true
     EOT
   }
 
   # always_run forces re-execution on every apply to handle LocalStack restarts
   triggers = {
-    email      = "jose.guerrero@cloudflax.com"
+    email      = var.ses_email_identity
     always_run = timestamp()
   }
 }
@@ -156,7 +203,7 @@ resource "aws_lambda_function" "rotation_lambda" {
     variables = {
       # Internal endpoint for Lambda to see Secrets Manager
       # Endpoint interno para que la Lambda vea a Secrets Manager 
-      SECRETS_MANAGER_ENDPOINT = "http://host.docker.internal:4566"
+      SECRETS_MANAGER_ENDPOINT = "http://host.docker.internal:5000"
     }
   }
 }
@@ -200,7 +247,7 @@ resource "aws_lambda_function" "cleanup_lambda" {
 
   environment {
     variables = {
-      SECRETS_MANAGER_ENDPOINT = "http://host.docker.internal:4566"
+      SECRETS_MANAGER_ENDPOINT = "http://host.docker.internal:5000"
       DB_SECRET_ARN            = aws_secretsmanager_secret.db_secret.arn
     }
   }

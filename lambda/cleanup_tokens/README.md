@@ -9,7 +9,7 @@ Función Lambda que limpia automáticamente la tabla `refresh_tokens` de Postgre
 | Variable | Descripción |
 |---|---|
 | `DB_SECRET_ARN` | ARN del secreto en Secrets Manager con las credenciales de la BD |
-| `SECRETS_MANAGER_ENDPOINT` | Endpoint de Secrets Manager (LocalStack: `http://host.docker.internal:4566`) |
+| `SECRETS_MANAGER_ENDPOINT` | Endpoint de Secrets Manager (LocalStack: `http://host.docker.internal:5000`) |
 
 ---
 

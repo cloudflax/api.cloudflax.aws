@@ -8,7 +8,7 @@ Función Lambda que implementa la rotación automática de credenciales de la ba
 
 | Variable | Descripción |
 |---|---|
-| `SECRETS_MANAGER_ENDPOINT` | Endpoint de Secrets Manager (LocalStack: `http://host.docker.internal:4566`) |
+| `SECRETS_MANAGER_ENDPOINT` | Endpoint de Secrets Manager (LocalStack: `http://host.docker.internal:5000`) |
 
 ---
 
