@@ -2,7 +2,7 @@ SHELL := /bin/bash
 TF ?= terraform
 ENV_FILE ?= .env
 
-.PHONY: init plan apply apply-auto fmt validate destroy
+.PHONY: init plan apply apply-auto fmt validate destroy docker-up
 
 init:
 	@echo ">> terraform init"
@@ -14,6 +14,7 @@ plan:
 	if [ -f "$(ENV_FILE)" ]; then \
 	  echo "Cargando variables desde $(ENV_FILE)"; \
 	  set -a; . "$(ENV_FILE)"; set +a; \
+	  if [ ! -z "$$USE_MOTO" ]; then export TF_VAR_use_moto="$$USE_MOTO"; fi; \
 	fi; \
 	if [ -z "$$SES_EMAIL_IDENTITY" ]; then \
 	  echo "SES_EMAIL_IDENTITY no está definido. Puedes definirlo en $(ENV_FILE) o así:"; \
@@ -28,6 +29,7 @@ apply:
 	if [ -f "$(ENV_FILE)" ]; then \
 	  echo "Cargando variables desde $(ENV_FILE)"; \
 	  set -a; . "$(ENV_FILE)"; set +a; \
+	  if [ ! -z "$$USE_MOTO" ]; then export TF_VAR_use_moto="$$USE_MOTO"; fi; \
 	fi; \
 	if [ -z "$$SES_EMAIL_IDENTITY" ]; then \
 	  echo "SES_EMAIL_IDENTITY no está definido. Puedes definirlo en $(ENV_FILE) o así:"; \
@@ -42,6 +44,7 @@ apply-auto:
 	if [ -f "$(ENV_FILE)" ]; then \
 	  echo "Cargando variables desde $(ENV_FILE)"; \
 	  set -a; . "$(ENV_FILE)"; set +a; \
+	  if [ ! -z "$$USE_MOTO" ]; then export TF_VAR_use_moto="$$USE_MOTO"; fi; \
 	fi; \
 	if [ -z "$$SES_EMAIL_IDENTITY" ]; then \
 	  echo "SES_EMAIL_IDENTITY no está definido. Puedes definirlo en $(ENV_FILE) o así:"; \
@@ -64,6 +67,7 @@ destroy:
 	if [ -f "$(ENV_FILE)" ]; then \
 	  echo "Cargando variables desde $(ENV_FILE)"; \
 	  set -a; . "$(ENV_FILE)"; set +a; \
+	  if [ ! -z "$$USE_MOTO" ]; then export TF_VAR_use_moto="$$USE_MOTO"; fi; \
 	fi; \
 	if [ -z "$$SES_EMAIL_IDENTITY" ]; then \
 	  echo "SES_EMAIL_IDENTITY no está definido. Puedes definirlo en $(ENV_FILE) o así:"; \
@@ -72,3 +76,6 @@ destroy:
 	fi; \
 	$(TF) destroy -var "ses_email_identity=$$SES_EMAIL_IDENTITY"
 
+docker-up:
+	@echo ">> Levantando contenedores Docker con docker-compose"
+	@docker compose up -d
