@@ -9,46 +9,22 @@ Función Lambda que limpia automáticamente la tabla `refresh_tokens` de Postgre
 | Variable | Descripción |
 |---|---|
 | `DB_SECRET_ARN` | ARN del secreto en Secrets Manager con las credenciales de la BD |
-| `SECRETS_MANAGER_ENDPOINT` | Endpoint de Secrets Manager (LocalStack: `http://host.docker.internal:5000`) |
+| `AWS_REGION_NAME` | Región de AWS donde se encuentra Secrets Manager |
 
 ---
 
-## Empaquetar con Docker
+## Empaquetado
 
-`psycopg2` debe compilarse para Amazon Linux. Instalar con `pip` normal genera un binario incompatible con el runtime de Lambda.
-
-**Paso 1 — Instalar dependencias dentro del contenedor de Lambda:**
-
-```bash
-docker run --rm \
-  --entrypoint bash \
-  -v "$(pwd)/lambda/cleanup_tokens:/var/task" \
-  -w /var/task \
-  public.ecr.aws/lambda/python:3.9 \
-  -c "pip install --upgrade pip --root-user-action=ignore && pip install psycopg2-binary --target /var/task --upgrade --root-user-action=ignore"
-```
-
-**Paso 2 — Generar el `.zip`:**
-
-```bash
-cd lambda/cleanup_tokens
-
-zip -r cleanup_code.zip . \
-  --exclude "*.pyc" \
-  --exclude "__pycache__/*" \
-  --exclude "README.md" \
-  --exclude "cleanup_code.zip"
-```
-
-> Terraform también genera el `.zip` automáticamente al ejecutar `terraform apply` usando el bloque `archive_file` en `main.tf`.
+Terraform genera el `.zip` automáticamente al ejecutar `plan`/`apply` con el bloque `archive_file` en `main.tf`. La función usa `psycopg2`; para que funcione en Lambda hay que añadir una **Lambda Layer** con `psycopg2` compilado para Amazon Linux (por ejemplo [psycopg2-lambda-layer](https://github.com/jetbridge/psycopg2-lambda-layer)) o incluir la dependencia en el paquete generado en un entorno compatible.
 
 ---
 
-## Prueba manual con LocalStack
+## Prueba manual en AWS
 
 ```bash
-awslocal lambda invoke \
-  --function-name tf-localstack-cleanup-tokens-lambda \
+aws lambda invoke \
+  --function-name cloudflax-sandbox-cleanup-lambda \
   --payload '{}' \
+  --region us-east-1 \
   response.json && cat response.json
 ```

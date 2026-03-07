@@ -5,8 +5,8 @@ import psycopg2
 from datetime import datetime
 
 def get_secrets_manager_client():
-    endpoint_url = os.environ.get('SECRETS_MANAGER_ENDPOINT', 'http://host.docker.internal:5000')
-    return boto3.client('secretsmanager', endpoint_url=endpoint_url, region_name='us-east-1')
+    region = os.environ.get('AWS_REGION_NAME', 'us-east-1')
+    return boto3.client('secretsmanager', region_name=region)
 
 def handler(event, context):
     print("Iniciando cleanup de refresh tokens expirados")

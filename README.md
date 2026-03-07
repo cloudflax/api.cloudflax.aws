@@ -1,6 +1,6 @@
-# API Cloudflax – AWS (LocalStack)
+# API Cloudflax – AWS Infrastructure
 
-Infraestructura como código con **Terraform** orientada a **AWS** en producción. En desarrollo, los servicios de AWS se simulan localmente mediante **LocalStack**.
+Infraestructura como código con **Terraform** para AWS. Todos los recursos se despliegan directamente en una cuenta real de AWS.
 
 ## Recursos desplegados
 
@@ -11,65 +11,68 @@ Infraestructura como código con **Terraform** orientada a **AWS** en producció
 | Lambda `db_rotation` | Rotación automática de contraseña cada 30 días → [ver README](lambda/db_rotation/README.md) |
 | Lambda `cleanup_tokens` | Limpieza de tokens expirados/revocados cada minuto → [ver README](lambda/cleanup_tokens/README.md) |
 | IAM | Roles y políticas para ejecución de las Lambdas |
+| SES | Identidad de email y template de verificación |
 | CloudWatch Events | Regla de schedule para `cleanup_tokens` |
 
 ## Requisitos previos
 
 - [Terraform](https://www.terraform.io/downloads) (provider AWS ~> 5.0)
-- [LocalStack](https://docs.localstack.cloud/) en ejecución en `http://localhost:5000`
-- [Docker](https://www.docker.com/) (para empaquetar las Lambdas con dependencias Linux)
-- [awslocal](https://github.com/localstack/awscli-local) (`pip install awscli-local`)
+- [AWS CLI](https://aws.amazon.com/cli/) configurado con credenciales válidas
+
+## Configuración
+
+Copia `.env.example` a `.env` y ajusta los valores:
+
+```bash
+cp .env.example .env
+```
+
+| Variable | Descripción | Requerida |
+|---|---|---|
+| `ENVIRONMENT` | Entorno de despliegue (`sandbox`, `staging`, `production`) | Sí |
+| `AWS_REGION` | Región de AWS | Sí |
+| `SES_EMAIL_IDENTITY` | Email verificado en SES | Sí |
+| `DB_PASSWORD` | Contraseña inicial del clúster RDS | Sí |
+| `AWS_PROFILE` | Perfil de `~/.aws/credentials` (opcional) | No |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Credenciales directas (opcional) | No |
 
 ## Estructura del proyecto
 
 ```
 .
 ├── main.tf                          # Todos los recursos Terraform
-├── terraform.tfstate                # Estado de Terraform (no subir a VCS)
-├── terraform.tfstate.backup         # Backup del estado anterior
-├── lambda/
-│   ├── db_rotation/
-│   │   ├── rotation.py              # Lambda de rotación de credenciales
-│   │   ├── rotation_code.zip        # Artefacto generado por Terraform
-│   │   ├── psycopg2/                # Dependencia empaquetada (Linux)
-│   │   ├── psycopg2_binary.libs/    # Libs nativas de psycopg2
-│   │   ├── psycopg2_binary-*.dist-info/
-│   │   └── README.md
-│   └── cleanup_tokens/
-│       ├── cleanup.py               # Lambda de limpieza de tokens
-│       ├── cleanup_code.zip         # Artefacto generado por Terraform
-│       ├── psycopg2/                # Dependencia empaquetada (Linux)
-│       ├── psycopg2_binary.libs/    # Libs nativas de psycopg2
-│       ├── psycopg2_binary-*.dist-info/
-│       ├── lambda/cleanup_tokens/   # Copia generada durante el empaquetado
-│       └── README.md
-└── README.md
+├── .env                             # Variables de entorno (no subir a VCS)
+├── .env.example                     # Plantilla de variables
+├── Makefile                         # Comandos de conveniencia
+├── templates/
+│   ├── auth-verify-email.html       # Template SES HTML
+│   └── auth-verify-email.txt        # Template SES texto plano
+└── lambda/
+    ├── db_rotation/
+    │   ├── rotation.py              # Lambda de rotación de credenciales
+    │   ├── rotation_code.zip        # Artefacto generado por Terraform
+    │   └── README.md
+    └── cleanup_tokens/
+        ├── cleanup.py               # Lambda de limpieza de tokens
+        ├── cleanup_code.zip         # Artefacto generado por Terraform
+        └── README.md
 ```
 
 ## Despliegue
 
 ```bash
 # 1. Inicializar provider
-terraform init
+make init
 
 # 2. Revisar plan
-terraform plan
+make plan
 
 # 3. Aplicar infraestructura
-terraform apply
+make apply
 ```
-
-> Terraform genera los `.zip` de las Lambdas automáticamente mediante el bloque `archive_file` en `main.tf`. No es necesario empaquetar manualmente antes del primer `apply`.
-
-## Configuración relevante
-
-- **Provider**: credenciales de prueba (`test`/`test`), región `us-east-1`, endpoints apuntando a LocalStack (`localhost:5000`).
-- **Secreto**: `host` configurado como `host.docker.internal:4510` para que las Lambdas (dentro del contenedor de LocalStack) alcancen PostgreSQL en el host.
-- **Variable de entorno Lambda**: `SECRETS_MANAGER_ENDPOINT = "http://host.docker.internal:5000"`.
-
-Ajusta `host` y `port` del secreto en `main.tf` según dónde corra tu instancia PostgreSQL.
 
 ## Notas
 
-- Este código está pensado exclusivamente para **entorno local con LocalStack**. Para AWS real hay que eliminar los endpoints de LocalStack y usar credenciales reales.
-- No subas `terraform.tfstate` ni archivos con credenciales a control de versiones.
+- Los nombres de los recursos incluyen el valor de `ENVIRONMENT` para permitir múltiples entornos en la misma cuenta.
+- No subas `.env`, `terraform.tfstate` ni archivos con credenciales a control de versiones.
+- `DB_PASSWORD` es la contraseña **inicial** del clúster; una vez que la rotación automática esté activa, Secrets Manager la gestiona.

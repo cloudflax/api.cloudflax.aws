@@ -11,49 +11,48 @@ terraform {
   }
 }
 
-# 🔥 MODO MOTO
-variable "use_moto" {
-  type    = bool
-  default = true
+variable "aws_region" {
+  type    = string
+  default = "us-east-1"
+}
+
+variable "aws_profile" {
+  type    = string
+  default = "dev"
+}
+
+variable "environment" {
+  type    = string
+  default = "dev"
 }
 
 variable "ses_email_identity" {
   type = string
 }
 
-provider "aws" {
-  access_key = "test"
-  secret_key = "test"
-  region     = "us-east-1"
-
-  skip_credentials_validation = true
-  skip_metadata_api_check     = true
-  skip_requesting_account_id  = true
-  skip_region_validation      = true
-
-  s3_use_path_style = true
-
-  endpoints {
-    ses            = "http://localhost:5000"
-    sesv2          = "http://localhost:5000"
-    rds            = "http://localhost:5000"
-    secretsmanager = "http://localhost:5000"
-    sts            = "http://localhost:5000"
-    iam            = "http://localhost:5000"
-    lambda         = "http://localhost:5000"
-    events         = "http://localhost:5000"
-    cloudwatch     = "http://localhost:5000"
-  }
+variable "db_username" {
+  type    = string
+  default = "postgres"
 }
 
-# ---------------- SES (Moto) ----------------
+variable "db_password" {
+  type      = string
+  sensitive = true
+}
+
+provider "aws" {
+  region  = var.aws_region
+  profile = var.aws_profile
+}
+
+# ---------------- SES ----------------
 
 resource "aws_ses_email_identity" "from_email" {
   email = var.ses_email_identity
 }
 
 resource "aws_ses_configuration_set" "default" {
-  name = "local-config-set"
+  name = "cloudflax-${var.environment}-config-set"
 }
 
 resource "aws_ses_template" "auth_verify_email" {
@@ -66,7 +65,7 @@ resource "aws_ses_template" "auth_verify_email" {
 # ---------------- IAM ----------------
 
 resource "aws_iam_role" "lambda_role" {
-  name = "rotation_lambda_role"
+  name = "cloudflax-${var.environment}-lambda-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -80,42 +79,64 @@ resource "aws_iam_role" "lambda_role" {
   })
 }
 
-# ---------------- RDS (desactivado en modo Moto) ----------------
+resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
+  role       = aws_iam_role.lambda_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
 
-resource "aws_rds_cluster" "local_rds_cluster" {
-  count = var.use_moto ? 0 : 1
+resource "aws_iam_role_policy" "lambda_secrets_policy" {
+  name = "cloudflax-${var.environment}-lambda-secrets-policy"
+  role = aws_iam_role.lambda_role.id
 
-  cluster_identifier  = "tf-local-rds"
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecretVersionStage",
+          "secretsmanager:DescribeSecret"
+        ]
+        Resource = aws_secretsmanager_secret.db_secret.arn
+      }
+    ]
+  })
+}
+
+# ---------------- RDS ----------------
+
+resource "aws_rds_cluster" "rds_cluster" {
+  cluster_identifier  = "cloudflax-${var.environment}-rds"
   engine              = "aurora-postgresql"
   database_name       = "cloudflax"
-  master_username     = "postgres"
-  master_password     = "password"
+  master_username     = var.db_username
+  master_password     = var.db_password
   skip_final_snapshot = true
 }
 
-resource "aws_rds_cluster_instance" "local_rds_instance" {
-  count = var.use_moto ? 0 : 1
-
-  identifier         = "tf-local-rds-instance"
-  cluster_identifier = aws_rds_cluster.local_rds_cluster[0].id
+resource "aws_rds_cluster_instance" "rds_instance" {
+  identifier         = "cloudflax-${var.environment}-rds-instance"
+  cluster_identifier = aws_rds_cluster.rds_cluster.id
   instance_class     = "db.t3.micro"
-  engine             = aws_rds_cluster.local_rds_cluster[0].engine
+  engine             = aws_rds_cluster.rds_cluster.engine
 }
 
 # ---------------- SECRETS ----------------
 
 resource "aws_secretsmanager_secret" "db_secret" {
-  name = "tf-local-db-secret"
+  name = "cloudflax-${var.environment}-db-secret"
 }
 
 resource "aws_secretsmanager_secret_version" "db_secret_version" {
   secret_id = aws_secretsmanager_secret.db_secret.id
 
   secret_string = jsonencode({
-    username = "postgres"
-    password = "password"
-    host     = "host.docker.internal"
-    port     = 4510
+    username = var.db_username
+    password = var.db_password
+    host     = aws_rds_cluster.rds_cluster.endpoint
+    port     = 5432
     dbname   = "cloudflax"
   })
 }
@@ -130,7 +151,7 @@ data "archive_file" "rotation_lambda_zip" {
 
 resource "aws_lambda_function" "rotation_lambda" {
   filename         = data.archive_file.rotation_lambda_zip.output_path
-  function_name    = "tf-rotation-lambda"
+  function_name    = "cloudflax-${var.environment}-rotation-lambda"
   role             = aws_iam_role.lambda_role.arn
   handler          = "rotation.handler"
   runtime          = "python3.9"
@@ -138,15 +159,12 @@ resource "aws_lambda_function" "rotation_lambda" {
 
   environment {
     variables = {
-      SECRETS_MANAGER_ENDPOINT = "http://host.docker.internal:5000"
+      AWS_REGION_NAME = var.aws_region
     }
   }
 }
 
-# ❌ NO ROTATION EN MOTO
 resource "aws_secretsmanager_secret_rotation" "db_rotation" {
-  count = var.use_moto ? 0 : 1
-
   secret_id           = aws_secretsmanager_secret.db_secret.id
   rotation_lambda_arn = aws_lambda_function.rotation_lambda.arn
 
@@ -155,10 +173,7 @@ resource "aws_secretsmanager_secret_rotation" "db_rotation" {
   }
 }
 
-# ❌ NO LAMBDA PERMISSION EN MOTO
 resource "aws_lambda_permission" "allow_secrets_manager" {
-  count = var.use_moto ? 0 : 1
-
   statement_id  = "AllowExecutionFromSecretsManager"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.rotation_lambda.function_name
@@ -175,7 +190,7 @@ data "archive_file" "cleanup_lambda_zip" {
 
 resource "aws_lambda_function" "cleanup_lambda" {
   filename         = data.archive_file.cleanup_lambda_zip.output_path
-  function_name    = "tf-cleanup-lambda"
+  function_name    = "cloudflax-${var.environment}-cleanup-lambda"
   role             = aws_iam_role.lambda_role.arn
   handler          = "cleanup.handler"
   runtime          = "python3.9"
@@ -183,34 +198,27 @@ resource "aws_lambda_function" "cleanup_lambda" {
 
   environment {
     variables = {
-      SECRETS_MANAGER_ENDPOINT = "http://host.docker.internal:5000"
-      DB_SECRET_ARN            = aws_secretsmanager_secret.db_secret.arn
+      AWS_REGION_NAME = var.aws_region
+      DB_SECRET_ARN   = aws_secretsmanager_secret.db_secret.arn
     }
   }
 }
 
-# ❌ EVENTBRIDGE DESACTIVADO EN MOTO
 resource "aws_cloudwatch_event_rule" "cleanup_schedule" {
-  count = var.use_moto ? 0 : 1
-
-  name                = "cleanup-every-minute"
+  name                = "cloudflax-${var.environment}-cleanup-schedule"
   schedule_expression = "rate(1 minute)"
 }
 
 resource "aws_cloudwatch_event_target" "cleanup_target" {
-  count = var.use_moto ? 0 : 1
-
-  rule      = aws_cloudwatch_event_rule.cleanup_schedule[0].name
+  rule      = aws_cloudwatch_event_rule.cleanup_schedule.name
   target_id = "CleanupLambda"
   arn       = aws_lambda_function.cleanup_lambda.arn
 }
 
 resource "aws_lambda_permission" "allow_cloudwatch_cleanup" {
-  count = var.use_moto ? 0 : 1
-
   statement_id  = "AllowExecutionFromCloudWatch"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.cleanup_lambda.function_name
   principal     = "events.amazonaws.com"
-  source_arn    = aws_cloudwatch_event_rule.cleanup_schedule[0].arn
+  source_arn    = aws_cloudwatch_event_rule.cleanup_schedule.arn
 }

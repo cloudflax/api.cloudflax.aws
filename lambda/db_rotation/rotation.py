@@ -17,9 +17,8 @@ def get_random_password(length=32):
     return ''.join(secrets.choice(safe_alphabet) for i in range(length))
 
 def get_secrets_manager_client():
-    # Mantiene la configuración para que la Lambda vea a LocalStack.
-    endpoint_url = os.environ.get('SECRETS_MANAGER_ENDPOINT', 'http://host.docker.internal:5000')
-    return boto3.client('secretsmanager', endpoint_url=endpoint_url, region_name='us-east-1')
+    region = os.environ.get('AWS_REGION_NAME', 'us-east-1')
+    return boto3.client('secretsmanager', region_name=region)
 
 def handler(event, context):
     execution_history = []
@@ -68,7 +67,6 @@ def create_secret(client, arn, token, add_log):
         current_version = client.get_secret_value(SecretId=arn, VersionStage="AWSCURRENT")
         current_dict = json.loads(current_version['SecretString'])
     except Exception:
-        # Si AWSCURRENT no existe (común en LocalStack tras un error), iniciamos vacío.
         add_log("WARNING", "No se pudo recuperar AWSCURRENT en createSecret", step="createSecret")
         current_dict = {}
 
@@ -99,7 +97,6 @@ def set_secret(client, arn, token, add_log):
         current = client.get_secret_value(SecretId=arn, VersionStage="AWSCURRENT")
         old_creds = json.loads(current['SecretString'])
     except client.exceptions.ResourceNotFoundException:
-        # MEJORA: Si AWSCURRENT desapareció de LocalStack, usamos PENDING como respaldo.
         add_log("WARNING", "AWSCURRENT no encontrado, usando respaldo PENDING para conectar", step="setSecret")
         old_creds = new_creds 
 
