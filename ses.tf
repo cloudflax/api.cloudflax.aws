@@ -1,5 +1,9 @@
-resource "aws_ses_email_identity" "from_email" {
-  email = var.ses_email_identity
+locals {
+  ses_domain = split("@", var.ses_email_identity)[1]
+}
+
+resource "aws_sesv2_email_identity" "domain" {
+  email_identity = local.ses_domain
 }
 
 resource "aws_ses_configuration_set" "default" {
