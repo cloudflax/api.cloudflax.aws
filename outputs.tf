@@ -18,3 +18,13 @@ output "ses_dkim_records" {
     }
   ]
 }
+
+output "send_verify_email_lambda_arn" {
+  description = "ARN de la Lambda que envía el correo de verificación vía SES v2 (invócala desde el backend con payload JSON: email, name, link)."
+  value       = aws_lambda_function.send_verify_email.arn
+}
+
+output "send_verify_email_lambda_name" {
+  description = "Nombre de la función Lambda de verificación por correo."
+  value       = aws_lambda_function.send_verify_email.function_name
+}

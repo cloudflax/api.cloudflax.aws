@@ -80,3 +80,37 @@ resource "aws_lambda_permission" "allow_cloudwatch_cleanup" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.cleanup_schedule.arn
 }
+
+# ---------------- SEND VERIFY EMAIL LAMBDA ----------------
+
+data "archive_file" "send_verify_email_lambda_zip" {
+  type        = "zip"
+  output_path = "${path.module}/lambda/send_verify_email/send_verify_email.zip"
+
+  source {
+    content  = file("${path.module}/lambda/send_verify_email/handler.py")
+    filename = "handler.py"
+  }
+
+  source {
+    content  = file("${path.module}/templates/auth-verify-email.html")
+    filename = "templates/auth-verify-email.html"
+  }
+}
+
+resource "aws_lambda_function" "send_verify_email" {
+  filename         = data.archive_file.send_verify_email_lambda_zip.output_path
+  function_name    = "cloudflax-${var.environment}-send-verify-email"
+  role             = aws_iam_role.send_verify_email_lambda_role.arn
+  handler          = "handler.handler"
+  runtime          = "python3.9"
+  timeout          = 15
+  source_code_hash = data.archive_file.send_verify_email_lambda_zip.output_base64sha256
+
+  environment {
+    variables = {
+      SES_FROM_ADDRESS           = var.ses_email_identity
+      SES_EMAIL_SUBJECT_TEMPLATE = "Verify your account, {name}"
+    }
+  }
+}
