@@ -1,0 +1,4 @@
+# Copia a terraform.tfvars (no subir terraform.tfvars al repo si contiene datos sensibles).
+
+# Opcional: nombre explícito en AWS (default cloudflax-<ENVIRONMENT>-api-throttle-locks)
+# api_throttle_locks_table_name = "cloudflax-dev-api-throttle-locks"

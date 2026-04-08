@@ -16,3 +16,10 @@ resource "aws_ses_template" "auth_verify_email" {
   html    = file("${path.module}/templates/auth-verify-email.html")
   text    = file("${path.module}/templates/auth-verify-email.txt")
 }
+
+resource "aws_ses_template" "auth_forgot_password" {
+  name    = "auth-forgot-password"
+  subject = "Reset your password, {{name}}"
+  html    = file("${path.module}/templates/auth-forgot-password.html")
+  text    = file("${path.module}/templates/auth-forgot-password.txt")
+}

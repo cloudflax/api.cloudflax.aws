@@ -114,3 +114,37 @@ resource "aws_lambda_function" "send_verify_email" {
     }
   }
 }
+
+# ---------------- SEND FORGOT PASSWORD EMAIL LAMBDA ----------------
+
+data "archive_file" "send_forgot_password_email_lambda_zip" {
+  type        = "zip"
+  output_path = "${path.module}/lambda/send_forgot_password_email/send_forgot_password_email.zip"
+
+  source {
+    content  = file("${path.module}/lambda/send_forgot_password_email/handler.py")
+    filename = "handler.py"
+  }
+
+  source {
+    content  = file("${path.module}/templates/auth-forgot-password.html")
+    filename = "templates/auth-forgot-password.html"
+  }
+}
+
+resource "aws_lambda_function" "send_forgot_password_email" {
+  filename         = data.archive_file.send_forgot_password_email_lambda_zip.output_path
+  function_name    = "cloudflax-${var.environment}-send-forgot-password-email"
+  role             = aws_iam_role.send_forgot_password_email_lambda_role.arn
+  handler          = "handler.handler"
+  runtime          = "python3.9"
+  timeout          = 15
+  source_code_hash = data.archive_file.send_forgot_password_email_lambda_zip.output_base64sha256
+
+  environment {
+    variables = {
+      SES_FROM_ADDRESS           = var.ses_email_identity
+      SES_EMAIL_SUBJECT_TEMPLATE = "Reset your password, {name}"
+    }
+  }
+}

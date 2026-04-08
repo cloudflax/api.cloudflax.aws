@@ -28,3 +28,33 @@ output "send_verify_email_lambda_name" {
   description = "Nombre de la función Lambda de verificación por correo."
   value       = aws_lambda_function.send_verify_email.function_name
 }
+
+output "send_forgot_password_email_lambda_arn" {
+  description = "ARN de la Lambda que envía el correo de recuperación de contraseña vía SES v2 (payload JSON: email, name, link, expiresIn)."
+  value       = aws_lambda_function.send_forgot_password_email.arn
+}
+
+output "send_forgot_password_email_lambda_name" {
+  description = "Nombre de la función Lambda de correo de recuperación de contraseña."
+  value       = aws_lambda_function.send_forgot_password_email.function_name
+}
+
+output "dynamodb_api_throttle_locks_table_name" {
+  description = "Nombre de la tabla de throttle (email + rate limit por IP), ej. cloudflax-<env>-api-throttle-locks."
+  value       = aws_dynamodb_table.api_throttle_locks.name
+}
+
+output "dynamodb_api_throttle_locks_table_arn" {
+  description = "ARN de la tabla de throttle."
+  value       = aws_dynamodb_table.api_throttle_locks.arn
+}
+
+output "dynamodb_table_name" {
+  description = "Mismo nombre que dynamodb_api_throttle_locks_table_name (compatibilidad)."
+  value       = aws_dynamodb_table.api_throttle_locks.name
+}
+
+output "dynamodb_table_arn" {
+  description = "Mismo ARN que dynamodb_api_throttle_locks_table_arn (compatibilidad)."
+  value       = aws_dynamodb_table.api_throttle_locks.arn
+}

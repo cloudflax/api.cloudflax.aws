@@ -31,3 +31,9 @@ variable "db_secret_arn" {
   type        = string
   description = "ARN del secreto creado manualmente en AWS Secrets Manager"
 }
+
+variable "api_throttle_locks_table_name" {
+  type        = string
+  description = "Nombre de la tabla DynamoDB para throttle en AWS. Vacío: cloudflax-<environment>-api-throttle-locks."
+  default     = ""
+}

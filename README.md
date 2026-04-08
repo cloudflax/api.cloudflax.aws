@@ -13,6 +13,7 @@ Infraestructura como código con **Terraform** para AWS. Todos los recursos se d
 | IAM | Roles y políticas para ejecución de las Lambdas |
 | SES | Identidad de email y template de verificación |
 | CloudWatch Events | Regla de schedule para `cleanup_tokens` |
+| DynamoDB | Tabla `cloudflax-<ENV>-api-throttle-locks` (pk/sk, TTL `expires_at`, on-demand, cifrado y PITR) |
 
 ## Requisitos previos
 
@@ -33,8 +34,10 @@ cp .env.example .env
 | `AWS_REGION` | Región de AWS | Sí |
 | `SES_EMAIL_IDENTITY` | Email verificado en SES | Sí |
 | `DB_PASSWORD` | Contraseña inicial del clúster RDS | Sí |
+| `DB_SECRET_ARN` | ARN del secreto en Secrets Manager usado por Lambdas | Sí |
 | `AWS_PROFILE` | Perfil de `~/.aws/credentials` (opcional) | No |
 | `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` | Credenciales directas (opcional) | No |
+| `api_throttle_locks_table_name` | Nombre AWS de la tabla throttle (ver `terraform.tfvars.example`) | No |
 
 ## Estructura del proyecto
 
@@ -76,3 +79,4 @@ make apply
 - Los nombres de los recursos incluyen el valor de `ENVIRONMENT` para permitir múltiples entornos en la misma cuenta.
 - No subas `.env`, `terraform.tfstate` ni archivos con credenciales a control de versiones.
 - `DB_PASSWORD` es la contraseña **inicial** del clúster; una vez que la rotación automática esté activa, Secrets Manager la gestiona.
+- **DynamoDB:** tabla única para throttle (reenvío verificación email + ventana por IP): claves `pk`/`sk`, TTL en `expires_at` (número epoch). Nombre por defecto `cloudflax-<ENVIRONMENT>-api-throttle-locks`. El rol de las Lambdas existentes tiene permiso sobre esta tabla. Outputs: `dynamodb_api_throttle_locks_table_name` y `dynamodb_api_throttle_locks_table_arn` (y alias `dynamodb_table_*`). Si ya desplegaste la versión anterior con `for_each` de tablas, `terraform plan` puede proponer **eliminar** esas tablas antiguas y crear esta; revisa el plan antes de aplicar.
